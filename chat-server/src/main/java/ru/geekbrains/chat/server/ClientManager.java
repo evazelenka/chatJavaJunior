@@ -47,17 +47,56 @@ public class ClientManager implements Runnable{
     }
 
     private void broadcastMessage(String message){
-        for (ClientManager client : clients) {
+        String direct = isMessageDirect(message);
+        if (!direct.equals(name)){
+           sendDirectMessage(message, direct);
+        } else {
+            sendPublicMessage(message);
+        }
+    }
+
+    private void sendDirectMessage(String message, String direct){
+        ClientManager client = clients.stream().filter(c -> c.name.equals(direct)).findFirst().orElse(null);
+        try {
+            if (client != null){
+                client.bufferedWriter.write(message);
+                client.bufferedWriter.newLine();
+                client.bufferedWriter.flush();
+            } else {
+                bufferedWriter.write("client is not found");
+                bufferedWriter.newLine();
+                bufferedWriter.flush();
+            }
+        } catch (IOException e) {
+            closeEverything(socket, bufferedReader, bufferedWriter);
+        }
+    }
+
+    private void sendPublicMessage(String message){
+        clients.stream().filter(client -> !(client.name.equals(name))).forEach(client -> {
             try {
-                if (!(client.name.equals(name))){
-                    client.bufferedWriter.write(message);
-                    client.bufferedWriter.newLine();
-                    client.bufferedWriter.flush();
-                }
+                client.bufferedWriter.write(message);
+                client.bufferedWriter.newLine();
+                client.bufferedWriter.flush();
             } catch (IOException e) {
                 closeEverything(socket, bufferedReader, bufferedWriter);
             }
+        });
+    }
+
+    /**
+     * Метод проверки сообщения на лс.
+     * @param message - сообщение
+     * @return Возращает имя получателя, если сообщение личное, иначе возвращает имя отправителя.
+     */
+    private String isMessageDirect(String message){
+        String[] str = message.split(" ");
+        for (int i = 0; i < str.length; i++) {
+            if (str[i].startsWith("@")){
+                return str[i].substring(1, str[i].length());
+            }
         }
+        return name;
     }
 
     private void removeClient(){
